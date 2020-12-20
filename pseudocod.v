@@ -5,6 +5,8 @@ Inductive Memory :=
 | unallocated : Memory
 | offset : nat -> Memory.
 
+Coercion offset : nat >-> Memory.
+
 (*Stringurile vor fi numele variabilelor*)
 
 Require Import Strings.String.
@@ -30,14 +32,12 @@ Coercion boolVal : bool >-> Value.
 
 Definition Var := string -> Memory -> Value.
 
-Inductive Var :=
-| 
 
 (*Urmeaza tipurile: *)
 (*AExp adaptat cu mem*)
 
 Inductive AExp :=
-| avar : string -> Memory -> nat -> AExp
+| avar : string -> AExp (* Initial am vrut sa pun var -> AExp*)
 | anum : nat -> AExp
 | aplus : AExp -> AExp -> AExp
 | asub : AExp -> AExp -> AExp
@@ -45,17 +45,22 @@ Inductive AExp :=
 | adiv : AExp -> AExp -> AExp
 | amod : AExp -> AExp -> AExp.
 
+
 Notation "A +' B" := (aplus A B) (at level 48).
 Notation "A -' B" := (asub A B) (at level 50).
 Notation "A *' B" := (amul A B) (at level 46).
 Notation "A /' B" := (adiv A B) (at level 46).
 Notation "A %' B" := (amod A B) (at level 46).
 Coercion anum : nat >-> AExp.
-(* Coercion avar : .... >-> AExp. *)
+Coercion avar : string >-> AExp.
+
+Check ( 2 +' 3 *' 5).
+Check ( 2 +' "x" *' 5).
+Check ( "x" ). (* Nu tocmai ok *)
 
 (*BExp*)
 Inductive BExp :=
-| bvar : string -> Memory -> bool -> BExp
+(* | bvar : string -> BExp *)
 | btrue : BExp
 | bfalse : BExp
 | blessthan : AExp -> AExp -> BExp
@@ -72,32 +77,39 @@ Notation "A ||' B" := (bor A B) (at level 42).
 
 (*Vector*)
 Inductive Vector :=
-| VDecl : Var -> nat -> Vector (* variabila, dimensiune *)
-| VAssign : Var -> nat -> Value -> Vector (* variabila, al i-lea element, valoare*)
-| VLook : Var -> nat -> Vector. 
+| VDecl : string -> nat -> Vector (* variabila, dimensiune *)
+| VAssign : string -> nat -> Value -> Vector (* variabila, al i-lea element, valoare*)
+| VLook : string -> nat -> Vector. 
 
 (* Oare se poate parcurge? sau ar trebui inlocuit Var?*)
 
 
 Notation " A [ B ] " := (VDecl A B)(at level 60).
-Notation "A [ B ] <- C" := (VAssign A B C) (at level 61).
+Notation "A [ B ] <<- C" := (VAssign A B C) (at level 61).
 Notation "'Afiseaza' A [ B ]" := (VLook A B) (at level 62).
+
+Check ( "V" [10]).
+(* Check ( "x" [3] <<- 5). *) (* eroare *)
+
 
 
 (*Stiva*)
 (* Implementare statica, *)
 Inductive Stiva :=
-(* luam un vector (?si ii mai adaugam un nat care va retine varful stivei?) *)
-| SStart : Vector ->Stiva
+(* ?luam un vector (?si ii mai adaugam un nat care va retine varful stivei?) *)
+| SDecl : string ->Stiva
 (* pe langa un vector simplu, stiva trebuie sa aiba si functiile de push, pop, top *)
 | SPush : Vector -> Value -> Stiva (* vf++ *)
 | SPop : Vector -> Stiva (* vf-- *)
 | STop : Vector -> Stiva. (* vf-1 *)
 
-Notation " 'Stiva' A" := (SStart A) (at level 60).
-Notation " A '.SPush' ( B )" := (SPush A B) (at level 61).
-Notation " A '.SPop'" := (SPop A) (at level 62).
-Notation " A '.STop'" := (STop A) (at level 63).
+Notation " 'Stiva' A" := (SDecl A) (at level 60).
+Notation " A 'SPush' ( B )" := (SPush A B) (at level 61).
+Notation " A 'SPop'" := (SPop A) (at level 62).
+Notation " A 'STop'" := (STop A) (at level 63).
+
+Check ( Stiva "S" ).
+(* Check ( "a" SPush ). *)
 
 (*Coada*)
 Inductive Coada :=

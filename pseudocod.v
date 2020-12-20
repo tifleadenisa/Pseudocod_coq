@@ -15,10 +15,14 @@ Scheme Equality for string.
 (*Tipuri de variabile*)
 Inductive Value :=
 | undefined : Value
+| error : Value
 | natVal : nat -> Value
 | boolVal : bool -> Value.
 
 Scheme Equality for Value.
+
+Coercion natVal : nat >-> Value.
+Coercion boolVal : bool >-> Value.
 
 (*o variabila (indiferent de tip) trebuie sa fie stocata la o adresa: nume_variabila->adresa*)
 
@@ -26,7 +30,8 @@ Scheme Equality for Value.
 
 Definition Var := string -> Memory -> Value.
 
-
+Inductive Var :=
+| 
 
 (*Urmeaza tipurile: *)
 (*AExp adaptat cu mem*)
@@ -50,6 +55,7 @@ Coercion anum : nat >-> AExp.
 
 (*BExp*)
 Inductive BExp :=
+| bvar : string -> Memory -> bool -> BExp
 | btrue : BExp
 | bfalse : BExp
 | blessthan : AExp -> AExp -> BExp
@@ -64,43 +70,74 @@ Notation "!' A" := (bnot A ) (at level 40).
 Notation "A &&' B" := (band A B) (at level 41).
 Notation "A ||' B" := (bor A B) (at level 42).
 
-(*Vector string-nat(offset)-nat(dimensiune)-value*)
+(*Vector*)
 Inductive Vector :=
 | VDecl : Var -> nat -> Vector (* variabila, dimensiune *)
 | VAssign : Var -> nat -> Value -> Vector (* variabila, al i-lea element, valoare*)
 | VLook : Var -> nat -> Vector. 
+
+(* Oare se poate parcurge? sau ar trebui inlocuit Var?*)
 
 
 Notation " A [ B ] " := (VDecl A B)(at level 60).
 Notation "A [ B ] <- C" := (VAssign A B C) (at level 61).
 Notation "'Afiseaza' A [ B ]" := (VLook A B) (at level 62).
 
+
 (*Stiva*)
 (* Implementare statica, *)
 Inductive Stiva :=
-(* luam un vector si ii mai adaugam un nat care va retine varful stivei *)
+(* luam un vector (?si ii mai adaugam un nat care va retine varful stivei?) *)
 | SStart : Vector ->Stiva
 (* pe langa un vector simplu, stiva trebuie sa aiba si functiile de push, pop, top *)
 | SPush : Vector -> Value -> Stiva (* vf++ *)
 | SPop : Vector -> Stiva (* vf-- *)
 | STop : Vector -> Stiva. (* vf-1 *)
 
-Notation " 'stiva' A" := (SStart A) (at level 60).
-Notation " A '.Push' ( B )" := (SPush A B) (at level 61).
-Notation " A '.Pop'" := (SPop A) (at level 62).
-Notation " A '.Top'" := (STop A) (at level 63).
+Notation " 'Stiva' A" := (SStart A) (at level 60).
+Notation " A '.SPush' ( B )" := (SPush A B) (at level 61).
+Notation " A '.SPop'" := (SPop A) (at level 62).
+Notation " A '.STop'" := (STop A) (at level 63).
 
 (*Coada*)
+Inductive Coada :=
+(* luam un vector si ii mai adaugam un nat care va retine varful stivei *)
+| CStart : Vector -> Coada
+(* pe langa un vector simplu, coada trebuie sa aiba si functiile de push, pop, front *)
+| CPush : Vector -> Value -> Coada (* dr++ *)
+| CPop : Vector -> Coada (* st++ *)
+| CFront : Vector -> Coada. (* st *)
+
+Notation " 'Coada' A" := (CStart A) (at level 64).
+Notation " A '.CPush' ( B )" := (CPush A B) (at level 65).
+Notation " A '.CPop'" := (CPop A) (at level 66).
+Notation " A '.CFront'" := (CFront A) (at level 67).
 
 
 
+(* Matrice *)
+(* Asemanator cu vector, adaugam inca un nat *)
+Inductive Matrice :=
+| MDecl : Var -> nat -> nat -> Matrice (* variabila, dimensiune *)
+| MAssign : Var -> nat -> nat -> Value -> Matrice (* variabila, al i-lea element, valoare*)
+| MLook : Var -> nat -> nat -> Matrice. 
 
-(* ?Matrice? *)
-(* ?I/O? *)
-(* ?Tipuri de erori? *)
-(* Tipuri de valori *)
+(* Simulare I/O *)
+(* Implementare pe baza de coada *)
 
 (* Statements *)
+Inductive Stmt :=
+| natDecl : string -> Memory -> nat -> Stmt 
+| boolDecl : string -> Memory -> bool -> Stmt 
+| natVector : Vector -> Stmt
+| boolVector : Vector -> Stmt
+| nat_assign : string -> AExp -> Stmt (* Assignment Stmt for variables of type nat *)
+| bool_assign : string -> BExp -> Stmt (* Assignment Stmt for variables of type nat *)
+| sequence : Stmt -> Stmt -> Stmt
+| while : BExp -> Stmt -> Stmt
+| ifthenelse : BExp -> Stmt -> Stmt -> Stmt
+| ifthen : BExp -> Stmt -> Stmt.
+
 (* ?Environment? memorie + nume + tip + valoare*)
 (**)
 

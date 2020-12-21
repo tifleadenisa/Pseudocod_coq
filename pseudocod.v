@@ -130,26 +130,51 @@ Notation " A '.CFront'" := (CFront A) (at level 67).
 (* Matrice *)
 (* Asemanator cu vector, adaugam inca un nat *)
 Inductive Matrice :=
-| MDecl : Var -> nat -> nat -> Matrice (* variabila, dimensiune *)
-| MAssign : Var -> nat -> nat -> Value -> Matrice (* variabila, al i-lea element, valoare*)
-| MLook : Var -> nat -> nat -> Matrice. 
+| MDecl : string -> nat -> nat -> Matrice (* variabila, dimensiune *)
+| MAssign : string -> nat -> nat -> Value -> Matrice (* variabila, al i-lea element, valoare*)
+| MLook : string -> nat -> nat -> Matrice. 
+
+Notation " A [ B ] [ C ] " := (MDecl A B C)(at level 60).
+Notation "A [ B ] [ C ] <<- D" := (MAssign A B C D) (at level 61).
+Notation "'Afiseaza' A [ B ] [ C ]" := (MLook A B C) (at level 62).
+
+Check ( "A" [10] [10] ).
+(*
+Check ( Afiseaza "A" [ 2 ] [ 3 ] ).
+
+Check ( "A" [1] [2] <<- 3 ). 
+*)
+
 
 (* Simulare I/O *)
 (* Implementare pe baza de coada *)
+(*-----------------------------*)
 
 (* Statements *)
 Inductive Stmt :=
-| natDecl : string -> Memory -> nat -> Stmt 
-| boolDecl : string -> Memory -> bool -> Stmt 
-| natVector : Vector -> Stmt
-| boolVector : Vector -> Stmt
-| nat_assign : string -> AExp -> Stmt (* Assignment Stmt for variables of type nat *)
-| bool_assign : string -> BExp -> Stmt (* Assignment Stmt for variables of type nat *)
+| natDecl : string -> nat -> Stmt (*pt variabile*)
+| boolDecl : string -> bool -> Stmt 
+| natVector : Vector -> Stmt (*am declararea in vector, oare e ok asa? *)
+| boolVector : Vector ->  Stmt
+(*| natStiva : Stiva -> Stmt 
+| boolStiva : Stiva -> Stmt
+| natCoada : Coada -> Stmt 
+| boolCoada : Coada -> Stmt *)
+| natMatrice : Matrice -> Stmt 
+| boolMatrice : Matrice -> Stmt
 | sequence : Stmt -> Stmt -> Stmt
-| while : BExp -> Stmt -> Stmt
 | ifthenelse : BExp -> Stmt -> Stmt -> Stmt
-| ifthen : BExp -> Stmt -> Stmt.
+| ifthen : BExp -> Stmt -> Stmt
+| while : BExp -> Stmt -> Stmt
+| forr : Stmt -> BExp -> Stmt -> Stmt -> Stmt .
 
-(* ?Environment? memorie + nume + tip + valoare*)
+Notation "'natural' A <- B" := (natDecl A B)(at level 70).
+Notation "'bool' A <- B" := (boolDecl A B)(at level 71).
+Notation "S1 ;; S2" := (sequence S1 S2) (at level 90, left associativity).
+Notation "'iff' A 'thenn' B 'elsee' C" := (ifthenelse A B C) (at level 91).
+Notation "'whilee' ( A ) B" := (while A B)(at level 92).
+Notation "forr ( A ,, B ,, C ) S " := (forr A B C S)(at level 93).
+
+(* ?Environment? memorie + nume + tip + valoare, adica var+value?*)
 (**)
 

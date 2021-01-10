@@ -1,11 +1,5 @@
 
 
-(*memorie: o variabila poate fi nealocata sau alocata (caz in care are un offset-nr nat) *)
-Inductive Memory :=
-| unallocated : Memory
-| offset : nat -> Memory.
-
-Coercion offset : nat >-> Memory.
 
 (*Stringurile vor fi numele variabilelor*)
 
@@ -26,11 +20,6 @@ Scheme Equality for Value.
 Coercion natVal : nat >-> Value.
 Coercion boolVal : bool >-> Value.
 
-(*o variabila (indiferent de tip) trebuie sa fie stocata la o adresa: nume_variabila->adresa*)
-
-(*fiecare adresa retine o valoare: adresa->valoare*)
-
-Definition Var := string -> Memory -> Value. 
 
 
 (*Urmeaza tipurile: *)
@@ -164,6 +153,16 @@ Check ( Matricee "A" [10] [10] ).
 Check ( MAfiseaza "A" [ 2 ] [ 3 ] ).
 Check ( MAsigneaza "A" [1] [ 2 ] <-' 3 ). 
 
+Inductive Types :=
+|tNat : string -> AExp -> Types
+|tBool : string -> BExp -> Types
+|tVector : Vector -> Types
+|tStiva : Stiva -> Types
+|tCoada : Coada -> Types
+|tMatrice : Matrice -> Types.
+
+Scheme Equality for Types.
+
 
 (* Simulare I/O *)
 (*Va fi posibila simularea I/O de genul: *)
@@ -267,6 +266,155 @@ whilee ("ok" ='' btrue )
 }
 
 ).
+
+
+(*------------------------*)
+
+(*------SEMANTICA---------*)
+
+(*------------------------*)
+
+(*o variabila (indiferent de tip) trebuie sa fie stocata la o adresa: nume_variabila->adresa*)
+
+(*fiecare adresa retine o valoare: adresa->valoare*)
+
+(* Definition Var := string -> Memory -> Value.  *)
+
+(*memorie: o variabila poate fi nealocata sau alocata (caz in care are un offset-nr nat) *)
+Inductive Memory :=
+| unallocated : Memory
+| offset : nat -> Memory.
+
+Scheme Equality for Memory.
+
+Coercion offset : nat >-> Memory.
+
+Definition Env := string -> Memory.
+
+Definition MemLayer := Memory -> Value. 
+
+Definition mlayer : MemLayer := fun x => undefined.
+
+Definition env : Env := fun x => unallocated.
+
+Definition update_env (env: Env) (x: string) (n: Memory) : Env :=
+  fun y =>
+      (* If the variable has assigned a default memory zone, 
+         then it will be updated with the current memory offset *)
+      if (andb (string_beq x y ) (Memory_beq (env y) unallocated))
+      then
+        n
+      else
+        (env y).
+
+Compute (env "z"). (* The variable is not yet declared *)
+
+(* Example of updating the environment, based on a specific memory offset *)
+Compute ((update_env env "x" (offset 9)) "x").
+
+
+Definition update_mem (layer: MemLayer) (x: Memory) (n: Value) : MemLayer :=
+  fun y =>
+    if( andb (Memory_beq x y) (Value_beq n (layer y)) ) (*sunt egale adresele si value egal*)
+    then
+       (layer y)
+    else
+      n.
+
+Compute ((update_mem mlayer (offset 9) (natVal 5)) (offset 9)).
+
+
+
+(*update_env pentru vectori *)
+
+Fixpoint update_env_vector (env: Env) (x: string) (m: nat) (n: Memory) : Env :=
+match m with 
+| 0 => env
+| S m' => match n with
+           | unallocated => env
+           | offset of => (update_env_vector (update_env env x (of+m')) x m' (of+1)) 
+           end
+end.
+
+Compute ((update_env_vector env "x" 9 (offset 6)) "x").
+
+
+
+Inductive Config :=
+|config : nat -> Env -> MemLayer -> Config.
+
+(* Big-step SOS for arithmetic expressions *)
+
+Reserved Notation "A =[ S , T ]=> N" (at level 60).
+(* Inductive aeval (a : AExp) (sigma : Env) (tau : MemLayer) (n : nat) : Prop := *)
+(* | const : a = n -> a =[ sigma ]=> n *)
+(* where "a =[ sigma , tau ]=> n" := (aeval a sigma tau n). *)
+
+Inductive aeval : AExp -> Env -> MemLayer -> Value -> Prop :=
+| const : forall n sigma tau, anum n =[ sigma , tau ]=> n 
+| var : forall v sigma tau, avar v =[ sigma , tau ]=> (tau (sigma v))
+(* | varVector : forall v sigma tau, avar v =[ sigma , tau ]=> tau(update_env_vector v number sigma(v))*)
+| add : forall a1 a2 i1 i2 sigma tau n,
+    a1 =[ sigma , tau ]=> natVal i1 ->
+    a2 =[ sigma , tau ]=> natVal i2 ->
+    n = i1 + i2 ->
+    a1 +' a2 =[sigma , tau]=> n
+| times : forall a1 a2 i1 i2 sigma tau n,
+    a1 =[ sigma , tau ]=> natVal i1 ->
+    a2 =[ sigma , tau ]=> natVal i2 ->
+    n = i1 * i2 ->
+    a1 *' a2 =[sigma , tau]=> n
+| substract : forall a1 a2 i1 i2 sigma tau n,
+    a1 =[ sigma , tau ]=> natVal i1 ->
+    a2 =[ sigma , tau ]=> natVal i2 ->
+    n = i1 - i2 ->
+    a1 -' a2 =[sigma , tau]=> n
+| divide : forall a1 a2 i1 i2 sigma tau n,
+    a1 =[ sigma , tau ]=> natVal i1 ->
+    a2 =[ sigma , tau ]=> natVal i2 ->
+    n = Nat.div i1 i2 ->
+    a1 /' a2 =[sigma , tau]=> n
+|modulo : forall a1 a2 i1 i2 sigma tau n,
+    a1 =[ sigma , tau ]=> natVal i1 ->
+    a2 =[ sigma , tau ]=> natVal i2 ->
+   
+    a1 %' a2 =[sigma , tau]=> n
+where "a =[ sigma , tau ]=> n" := (aeval a sigma tau n).
+
+Compute ((update_env env "x" (offset 9)) "x").
+Compute ((update_mem mlayer (offset 9) (natVal 5)) (offset 9)).
+
+Example ex0 : "x" =[ env , mlayer ]=> 5.
+Proof.
+  eauto.
+Qed.
+
+Reserved Notation "B ={ S , T}=> B'" (at level 70).
+
+Inductive beval : BExp -> Env -> MemLayer -> bool -> Prop :=
+| e_true : forall sigma, btrue ={ sigma }=> true
+| e_false : forall sigma, bfalse ={ sigma }=> false
+| e_lessthan : forall a1 a2 i1 i2 sigma b,
+    a1 =[ sigma ]=> i1 ->
+    a2 =[ sigma ]=> i2 ->
+    b = Nat.leb i1 i2 ->
+    a1 <=' a2 ={ sigma }=> b
+| e_nottrue : forall b sigma,
+    b ={ sigma }=> true ->
+    (bnot b) ={ sigma }=> false
+| e_notfalse : forall b sigma,
+    b ={ sigma }=> false ->
+    (bnot b) ={ sigma }=> true
+| e_andtrue : forall b1 b2 sigma t,
+    b1 ={ sigma }=> true ->
+    b2 ={ sigma }=> t ->
+    band b1 b2 ={ sigma }=> t
+| e_andfalse : forall b1 b2 sigma,
+    b1  ={ sigma }=> false ->
+    band b1 b2 ={ sigma }=> false
+where "B ={ S }=> B'" := (beval B S B').
+
+
 
 
 

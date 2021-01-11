@@ -8,17 +8,7 @@ Local Open Scope string_scope.
 Local Open Scope list_scope.
 Scheme Equality for string.
 
-(*Tipuri de variabile*)
-Inductive Value :=
-| undefined : Value
-| error : Value
-| natVal : nat -> Value
-| boolVal : bool -> Value.
 
-Scheme Equality for Value.
-
-Coercion natVal : nat >-> Value.
-Coercion boolVal : bool >-> Value.
 
 
 
@@ -36,7 +26,7 @@ Inductive AExp :=
 
 Scheme Equality for AExp.
 
-Notation "A =' B" := (AExp_beq A B) (at level 47). 
+
 Notation "A +' B" := (aplus A B) (at level 48).
 Notation "A -' B" := (asub A B) (at level 50).
 Notation "A *' B" := (amul A B) (at level 46).
@@ -49,11 +39,9 @@ Check ( 2 +' 3 *' 5).
 Check ( 2 +' "x" *' 5).
 Check ( 1 +' "s").
 Check ( 1 = 1).
-Check ( "s" =' "s").
 
 (*BExp*)
 Inductive BExp :=
-| btransform : bool -> BExp
 | bvar : string -> BExp
 | btrue : BExp
 | bfalse : BExp
@@ -61,19 +49,33 @@ Inductive BExp :=
 | bgreaterthan : AExp -> AExp -> BExp
 | bnot : BExp -> BExp
 | band : BExp -> BExp -> BExp
+| bequal : BExp -> BExp -> BExp
+| aequal : AExp -> AExp -> BExp
 | bor : BExp -> BExp -> BExp.
 
 Coercion bvar : string >-> BExp.
-Coercion btransform : bool >-> BExp.
 
 Scheme Equality for BExp.
 
-Notation "A ='' B" := (BExp_beq A B) (at level 47). 
+Notation "A =' B" := (aequal A B) (at level 47). 
+Notation "A ='' B" := (bequal A B) (at level 47). 
 Notation "A <=' B" := (blessthan A B) (at level 53).
 Notation "A >=' B" := (blessthan A B) (at level 54).
 Notation "!' A" := (bnot A ) (at level 40).
 Notation "A &&' B" := (band A B) (at level 41).
 Notation "A ||' B" := (bor A B) (at level 42).
+
+(*Tipuri de variabile*)
+Inductive Value :=
+| undefined : Value
+| error : Value
+| natVal : nat -> Value
+| boolVal : bool -> Value.
+
+Scheme Equality for Value.
+
+Coercion natVal : nat >-> Value.
+Coercion boolVal : bool >-> Value. 
 
 
 Check ("ok" >=' 5). (*Nu tocmai ok*)
@@ -84,7 +86,6 @@ Inductive Vector :=
 | VAssign : string -> nat -> Value -> Vector (* variabila, al i-lea element, valoare*)
 | VLook : string -> nat -> Vector. 
 
-(* Oare se poate parcurge? sau ar trebui inlocuit Var?*)
 
 
 Notation " 'Vectorr' A [ B ] " := (VDecl A B)(at level 60).
@@ -153,15 +154,6 @@ Check ( Matricee "A" [10] [10] ).
 Check ( MAfiseaza "A" [ 2 ] [ 3 ] ).
 Check ( MAsigneaza "A" [1] [ 2 ] <-' 3 ). 
 
-Inductive Types :=
-|tNat : string -> AExp -> Types
-|tBool : string -> BExp -> Types
-|tVector : Vector -> Types
-|tStiva : Stiva -> Types
-|tCoada : Coada -> Types
-|tMatrice : Matrice -> Types.
-
-Scheme Equality for Types.
 
 
 (* Simulare I/O *)
@@ -267,6 +259,31 @@ whilee ("ok" ='' btrue )
 
 ).
 
+Check 
+(
+MNatural (Matricee "A" [ 2 ] [ 1 ]) ;;
+MNatural (MAsigneaza "A" [ 1 ] [ 1 ] <-' 0);;
+MNatural (MAsigneaza "A" [ 2 ] [ 1 ] <-' 1) ;;
+MNatural ( MAfiseaza "A" [ 2 ] [ 1 ] ) ;;
+
+CBool (Coadaa "C") ;;
+CBool ("C" CPush (true)) ;;
+CBool ("C" CPop);;
+CBool ("C" CFront);;
+
+SBool (Stivaa "S");;
+SBool ( "S" SPush (true) );;
+SBool ( "S" SPop);;
+SBool ( "S" STop);;
+
+VBool ( Vectorr "V" [ 3 ] );;
+VBool ( VAsigneaza "V" [1] <-' 1 );;
+VBool ( VAsigneaza "V" [2] <-' 1 );;
+VBool ( VAsigneaza "V" [3] <-' 1 );;
+VBool ( VAfiseaza "V" [2] )
+
+).
+
 
 (*------------------------*)
 
@@ -277,8 +294,6 @@ whilee ("ok" ='' btrue )
 (*o variabila (indiferent de tip) trebuie sa fie stocata la o adresa: nume_variabila->adresa*)
 
 (*fiecare adresa retine o valoare: adresa->valoare*)
-
-(* Definition Var := string -> Memory -> Value.  *)
 
 (*memorie: o variabila poate fi nealocata sau alocata (caz in care are un offset-nr nat) *)
 Inductive Memory :=
@@ -299,17 +314,14 @@ Definition env : Env := fun x => unallocated.
 
 Definition update_env (env: Env) (x: string) (n: Memory) : Env :=
   fun y =>
-      (* If the variable has assigned a default memory zone, 
-         then it will be updated with the current memory offset *)
       if (andb (string_beq x y ) (Memory_beq (env y) unallocated))
       then
         n
       else
         (env y).
 
-Compute (env "z"). (* The variable is not yet declared *)
+Compute (env "z"). 
 
-(* Example of updating the environment, based on a specific memory offset *)
 Compute ((update_env env "x" (offset 9)) "x").
 
 
@@ -332,24 +344,29 @@ match m with
 | 0 => env
 | S m' => match n with
            | unallocated => env
-           | offset of => (update_env_vector (update_env env x (of+m')) x m' (of+1)) 
-           end
+           | offset of => (update_env_vector (update_env env x (of+m')) x m' (of+1))
+            end
 end.
 
 Compute ((update_env_vector env "x" 9 (offset 6)) "x").
 
 
 
-Inductive Config :=
-|config : nat -> Env -> MemLayer -> Config.
+(*
+Definition valueFromString (env: Env) (s: string) (mem: Memory) (layer: MemLayer) : Value :=
+fun y=>
+    if (andb (string_beq s y ) (negb (env y) unallocated)) (*daca exista*)
+    then
+           if (andb (Memory_beq mem (mem y)) (Value_beq mem (layer y))) (*sunt egale adresele*)
+           then (layer y)
+           else undefined
+    else (mlayer (env y)).
+*)
 
-(* Big-step SOS for arithmetic expressions *)
+
+(* Big-step SOS AExp *)
 
 Reserved Notation "A =[ S , T ]=> N" (at level 60).
-(* Inductive aeval (a : AExp) (sigma : Env) (tau : MemLayer) (n : nat) : Prop := *)
-(* | const : a = n -> a =[ sigma ]=> n *)
-(* where "a =[ sigma , tau ]=> n" := (aeval a sigma tau n). *)
-
 Inductive aeval : AExp -> Env -> MemLayer -> Value -> Prop :=
 | const : forall n sigma tau, anum n =[ sigma , tau ]=> n 
 | var : forall v sigma tau, avar v =[ sigma , tau ]=> (tau (sigma v))
@@ -384,37 +401,131 @@ where "a =[ sigma , tau ]=> n" := (aeval a sigma tau n).
 Compute ((update_env env "x" (offset 9)) "x").
 Compute ((update_mem mlayer (offset 9) (natVal 5)) (offset 9)).
 
+(*
 Example ex0 : "x" =[ env , mlayer ]=> 5.
 Proof.
   eauto.
 Qed.
+*)
 
-Reserved Notation "B ={ S , T}=> B'" (at level 70).
+Example ex1 : 2 =[ env, mlayer ]=> 2.
+Proof.
+  apply const.
+Qed.
 
-Inductive beval : BExp -> Env -> MemLayer -> bool -> Prop :=
-| e_true : forall sigma, btrue ={ sigma }=> true
-| e_false : forall sigma, bfalse ={ sigma }=> false
-| e_lessthan : forall a1 a2 i1 i2 sigma b,
-    a1 =[ sigma ]=> i1 ->
-    a2 =[ sigma ]=> i2 ->
+Example ex2 : 2+'2 =[ env, mlayer ]=> 4.
+Proof.
+  eapply add.
+  eapply const.
+  eapply const.
+  reflexivity.
+Qed.
+
+(*
+Compute ((update_env env "sum" (offset 11)) "sum").
+Compute ((update_mem mlayer (offset 11) (natVal 0)) (offset 11)).
+Example ex3 : "sum" =[ env , mlayer ]=> 0.
+Proof.
+  eapply var.
+Qed.
+*)
+
+
+
+Reserved Notation "B ={ S , T }=> B'" (at level 70).
+
+Inductive beval : BExp -> Env -> MemLayer -> Value -> Prop :=
+| e_true : forall sigma tau, btrue ={ sigma , tau }=> true
+| e_false : forall sigma tau, bfalse ={ sigma , tau }=> false
+| eb_var : forall v sigma tau, bvar v ={ sigma , tau }=> (tau (sigma v))
+| e_lessthan : forall a1 a2 i1 i2 sigma tau b,
+    a1 =[ sigma , tau ]=> natVal i1 ->
+    a2 =[ sigma , tau ]=> natVal i2 ->
     b = Nat.leb i1 i2 ->
-    a1 <=' a2 ={ sigma }=> b
-| e_nottrue : forall b sigma,
-    b ={ sigma }=> true ->
-    (bnot b) ={ sigma }=> false
-| e_notfalse : forall b sigma,
-    b ={ sigma }=> false ->
-    (bnot b) ={ sigma }=> true
-| e_andtrue : forall b1 b2 sigma t,
-    b1 ={ sigma }=> true ->
-    b2 ={ sigma }=> t ->
-    band b1 b2 ={ sigma }=> t
-| e_andfalse : forall b1 b2 sigma,
-    b1  ={ sigma }=> false ->
-    band b1 b2 ={ sigma }=> false
-where "B ={ S }=> B'" := (beval B S B').
+    a1 <=' a2 ={ sigma , tau }=> b
+| e_nottrue : forall b sigma tau,
+    b ={ sigma , tau }=> true ->
+    (bnot b) ={ sigma , tau }=> false
+| e_notfalse : forall b sigma tau,
+    b ={ sigma , tau }=> false ->
+    (bnot b) ={ sigma , tau }=> true
+| e_andtrue : forall b1 b2 sigma tau t,
+    b1 ={ sigma , tau }=> true ->
+    b2 ={ sigma , tau }=> t ->
+    band b1 b2 ={ sigma , tau }=> t
+| e_andfalse : forall b1 b2 sigma tau,
+    b1  ={ sigma , tau }=> false ->
+    band b1 b2 ={ sigma , tau }=> false
+where "B ={ S , T }=> B'" := (beval B S T B').
 
 
+Example ex4 : (bnot btrue) ={ env, mlayer }=> false.
+Proof.
+  eapply e_nottrue.
+  eapply e_true.
+Qed.
+
+
+Compute ((update_env env "ok" (offset 10)) "ok").
+Compute ((update_mem mlayer (offset 10) (boolVal true)) (offset 9)).
+
+(*
+Example ex5 : "x" ={ env , mlayer }=> 5.
+Proof.
+  eapply eb_var.
+Qed.
+*)
+
+
+
+Reserved Notation "B -{ S , T }-> C" (at level 60).
+
+
+Inductive eval : Stmt -> Env -> MemLayer -> MemLayer -> Prop :=
+| e_nat_decl: forall a i x sigma tau tau',
+   a =[ sigma , tau ]=> i ->
+   tau' = (update_mem tau (env x) undefined ) ->
+   (VarNatural x) -{ sigma , tau }-> tau'
+| e_bool_decl: forall a i x sigma tau tau',
+   a =[ sigma , tau ]=> i ->
+   tau' = (update_mem tau (env x) undefined ) ->
+   (VarBool x) -{ sigma , tau }-> tau'
+| e_nat_assign: forall a i x sigma tau tau',
+    a =[ sigma , tau ]=> (natVal i) ->
+    tau' = (update_mem tau (env x) (natVal i)) ->
+    (x <n= a) -{ sigma , tau }-> tau'
+| e_bool_assign: forall a i x sigma tau tau',
+    a ={ sigma ,tau }=> (boolVal i) ->
+    tau' = (update_mem tau (env x) (boolVal i)) ->
+    (x <b= a) -{ sigma , tau }-> tau'
+(*
+| e_natVector : forall a i x sigma tau tau',
+   a =[ sigma , tau ]=> i ->
+   tau' = (update_mem tau (env x) undefined ) ->
+   (natVector x) -{ sigma , tau }-> tau'
+*)
+| e_seq : forall s1 s2 sigma tau tau1 tau2,
+    s1 -{ sigma , tau }-> tau1 ->
+    s2 -{ sigma ,  tau1 }-> tau2 ->
+    (s1 ;; s2) -{ sigma , tau }-> tau2
+| e_if_then : forall b s sigma tau,
+    ifthen b s -{ sigma , tau }-> tau
+| e_if_then_elsetrue : forall b s1 s2 sigma tau tau',
+    b ={ sigma , tau }=> true ->
+    s1 -{ sigma , tau }-> tau' ->
+    ifthenelse b s1 s2 -{ sigma , tau }-> tau' 
+| e_if_then_elsefalse : forall b s1 s2 sigma tau tau',
+    b ={ sigma , tau }=> false ->
+    s2 -{ sigma , tau }-> tau' ->
+    ifthenelse b s1 s2 -{ sigma , tau }-> tau' 
+| e_whilefalse : forall b s sigma tau,
+    b ={ sigma , tau }=> false ->
+    while b s -{ sigma , tau }-> tau
+| e_whiletrue : forall b s sigma tau tau',
+    b ={ sigma  , tau }=> true ->
+    (s ;; while b s) -{ sigma , tau }-> tau' ->
+    while b s -{ sigma , tau }-> tau'
+where "s -{ sigma , tau }-> tau'" := (eval s sigma tau tau').
 
 
 
